@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.3/dist/css/bootstrap.min.css"
+		integrity="sha384-rbsA2VBKQhggwzxH7pPCaAqO46MgnOM80zW1RWuH61DGLwZJEdK2Kadq2F9CUG65" crossorigin="anonymous">
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
+</head>
+
+<body class="p-3" style="max-width: 800px;margin: auto;">
+
+	<div class="container-list">
+		<header class="text-center">
+			<h2 class="display-2 my-3">To Do</h2>
+			<p class="lead">To Do simple para recordar tareas pendientes. Puede añadir un temporizador a cada tarea para
+				recibir notificación de recordatorio.</p>
+		</header>
+		<main>
+			<section class="border bg-light p-2" style="display: grid;grid-template-columns: 1fr 100px;gap: 10px;">
+				<input type="text" id="nueva_tarea" class="form-control" placeholder="Tarea">
+				<button id="btn_crear" class="btn btn-primary" onclick="crearTarea()">
+					Crear
+				</button>
+			</section>
+			<div class="table-responsive">
+				<table class="table my-2">
+					<tr>
+						<th>NOMBRE</th>
+						<th>ESTATUS</th>
+						<th>CAMBIAR</th>
+						<th style="text-align: center;">FUNCIONES</th>
+						<th style="text-align: center;">TIMER</th>
+						<th>°&nbsp;</th>
+					</tr>
+					<tbody class="my-2" id="list"></tbody>
+				</table>
+			</div>
+		</main>
+	</div>
+
+	<script>
+		const w = window
+		const d = document
+		const Tareas = []
+		let Edit = {}
+
+		const crearTarea = () => {
+			if (Edit.name) {
+				confirm(`¿Deseas modificar el nombre?`) ? guardarEdit() : resetEdit()
+				return
+			}
+			if (!nueva_tarea.value) return
+
+			Tareas.unshift({
+				id: Date.now(),
+				name: nueva_tarea.value,
+				status: 'Creada',
+				done: false,
+				timer: 0,
+				limit: 0
+			})
+			listar_tareas()
+		}
+
+		const editing = (e) => {
+			Edit = { ...Tareas[e], index: e }
+			nueva_tarea.value = Edit.name
+			btn_crear.innerText = 'Modificar'
+			nueva_tarea.focus()
+		}
+		const deleting = (e) => {
+			if (Tareas[e].timer != "0") {
+				if (confirm(`Hay un temporizador de recordatorio ejecutandose ¿Desea eliminar la tarea?`)) {
+					Tareas.splice(e, 1)
+					listar_tareas()
+				}
+			} else {
+				if (confirm('¿Deseas eliminar la tarea \'' + Tareas[e].name + '\' ?')) {
+					Tareas.splice(e, 1)
+					listar_tareas()
+				}
+			}
+		}
+		const resetEdit = () => {
+			Edit = {}
+			btn_crear.innerText = 'Crear'
+			nueva_tarea.value = ''
+		}
+		const guardarEdit = () => {
+			if (Tareas[Edit.index].timer != "0") {
+				if (!confirm(`Hay un temporizador de recordatorio ejecutandose ¿Desea modificar la tarea?`)) {
+					nueva_tarea.value = ''
+					btn_crear.innerText = 'Crear'
+					Edit = {}
+					return
+				}
+			}
+			Tareas[Edit.index].name = nueva_tarea.value
+			Edit = {}
+			btn_crear.innerText = 'Crear'
+			listar_tareas()
+		}
+		const cambiarEstatus = (event, index) => {
+			if (Tareas[index].timer != "0") {
+				if (!confirm(`Hay un temporizador de recordatorio ejecutandose ¿Desea cambiar el estado a ${event.target.value}?`)) return
+			}
+			Tareas[index].status = event.target.value
+			if (event.target.value == 'Finalizado' && confirm('¿Deseas finalizar y eliminar la tarea?')) {
+				Tareas.splice(index, 1)
+			}
+			if (event.target.value == 'Cancelar') {
+				Tareas.splice(index, 1)
+			}
+			listar_tareas()
+			// console.log(Tareas)
+		}
+
+		const init_timer = (index, id) => {
+			if (Tareas[index].timer != "0") return
+			let tlimite = parseInt(prompt('Tiempo en segundos', 25))
+			let elem = d.querySelector('#_' + id)
+			if (!tlimite) {
+				alert()
+				return
+			}
+			elem.setAttribute('limit', tlimite)
+			Tareas[index].limit = tlimite
+		}
+
+		setInterval(() => {
+			d.querySelectorAll('.timer').forEach((e, i) => {
+				if (e.getAttribute('limit') != 0) {
+					let timer = parseInt(e.getAttribute('timer'))
+					e.setAttribute('timer', ++timer)
+					e.innerText = timer
+					Tareas[parseInt(e.getAttribute('index'))].timer = timer || e.innerText
+
+					if (timer >= parseInt(e.getAttribute('limit'))) {
+						Tareas[parseInt(e.getAttribute('index'))].timer = 0
+						Tareas[parseInt(e.getAttribute('index'))].limit = 0
+						e.setAttribute('timer', 0)
+						e.setAttribute('limit', 0)
+						e.innerText = 0
+						window.navigator.vibrate([200, 100, 200]);
+						notifyMe(Tareas[parseInt(e.getAttribute('index'))].name)
+					}
+				}
+			})
+		}, 1000)
+
+		function notifyMe(tarea) {
+			if (!("Notification" in window)) {
+				alert("This browser does not support desktop notification");
+			} else if (Notification.permission === "granted") {
+				const notification = new Notification("Hi! Notificación de `" + tarea + "` ");
+			} else if (Notification.permission !== "denied") {
+				Notification.requestPermission().then((permission) => {
+					if (permission === "granted") {
+						const notification = new Notification("Hi! Notificación de `" + tarea + "` ");
+					}
+				});
+			}
+		}
+
+		const verNombre = (e) => {
+			alert(e)
+		}
+
+		const listar_tareas = () => {
+			list.innerHTML = ``
+			nueva_tarea.value = ``
+			nueva_tarea.focus()
+			Tareas.forEach((e, index) => {
+				list.innerHTML += `
+					
+						<tr>
+							<td class='ellipsis' title='${e.name}'>${e.name}</td>
+							<td>${e.status == 'Finalizado' ? `<b style='color: green;'>Finalizado</b>` : e.status}</td>
+							<td>
+								<select onchange='cambiarEstatus(event, ${index})'>
+									<option value=''>Cambiar estatus</option>
+									<option value='Pendiente'>Pendiente</option>
+									<option value='Finalizado'>Finalizar</option>
+									<option value='Cancelar'>Cancelar</option>
+								</select>
+							</td>
+							<td style='display: flex;justify-content: space-around;border: 0;'>
+								<i class="bi bi-eye" onclick="verNombre('${e.name}')"></i>
+								<i class="bi bi-pencil" onclick="editing(${index})"></i>
+								<i class="bi bi-trash" onclick="deleting(${index})"></i>
+							</td>
+							<td style='text-align: center;'>
+								<i class="bi bi-clock-fill" onclick="init_timer(${index}, ${e.id})"></i>
+							</td>
+							<td>
+								<b class='timer' index=${index} timer=${e.timer} limit=${e.limit} id='_${e.id}'>0</b>
+							</td>
+						</tr>
+					
+				`
+			})
+		}
+	</script>
+
+	<style>
+		table,
+		tr,
+		td,
+		th {
+			border: 1px solid #ccc;
+		}
+
+		b {
+			vertical-align: middle;
+		}
+
+		.bi {
+			cursor: pointer;
+		}
+
+		.ellipsis {
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			width: 200px;
+			max-width: 200px !important;
+		}
+
+		select {
+			border: 0;
+			outline: 0;
+		}
+	</style>
+
+</body>
+
+</html>
